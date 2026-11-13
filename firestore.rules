@@ -1,0 +1,179 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default-Deny Catch-All)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // 3. Validation Blueprint: WatchlistSupplier
+    function isValidWatchlistSupplier(data) {
+      return data.keys().hasAll([
+        'userId',
+        'mst',
+        'companyName',
+        'baselineStatus',
+        'currentStatus',
+        'riskLevel',
+        'riskReason',
+        'taxAuthority',
+        'address',
+        'note',
+        'impactedInvoices',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'userId',
+        'mst',
+        'companyName',
+        'baselineStatus',
+        'currentStatus',
+        'riskLevel',
+        'riskReason',
+        'taxAuthority',
+        'address',
+        'note',
+        'impactedInvoices',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.userId == request.auth.uid &&
+      data.mst is string && data.mst.size() >= 10 && data.mst.size() <= 14 && data.mst.matches('^[0-9\\-]+$') &&
+      data.companyName is string && data.companyName.size() >= 1 && data.companyName.size() <= 300 &&
+      data.baselineStatus is string && data.baselineStatus.size() >= 1 && data.baselineStatus.size() <= 150 &&
+      data.currentStatus is string && data.currentStatus.size() >= 1 && data.currentStatus.size() <= 150 &&
+      data.riskLevel is string && data.riskLevel.size() <= 20 && data.riskLevel in ['SAFE', 'WARNING', 'HIGH', 'CRITICAL'] &&
+      data.riskReason is string && data.riskReason.size() >= 1 && data.riskReason.size() <= 1000 &&
+      data.taxAuthority is string && data.taxAuthority.size() >= 1 && data.taxAuthority.size() <= 250 &&
+      data.address is string && data.address.size() >= 1 && data.address.size() <= 500 &&
+      data.note is string && data.note.size() <= 500 &&
+      data.impactedInvoices is list && data.impactedInvoices.size() <= 50 &&
+      (data.impactedInvoices.size() == 0 || (data.impactedInvoices[0] is string && data.impactedInvoices[0].size() <= 50)) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // 4. Validation Blueprint: ExtractedInvoice
+    function isValidExtractedInvoice(data) {
+      return data.keys().hasAll([
+        'userId',
+        'sellerMst',
+        'sellerName',
+        'invoiceSymbol',
+        'invoiceNumber',
+        'issueDate',
+        'subtotalAmount',
+        'vatAmount',
+        'totalAmount',
+        'recommendation',
+        'fileName',
+        'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'userId',
+        'sellerMst',
+        'sellerName',
+        'invoiceSymbol',
+        'invoiceNumber',
+        'issueDate',
+        'subtotalAmount',
+        'vatAmount',
+        'totalAmount',
+        'recommendation',
+        'fileName',
+        'createdAt'
+      ]) &&
+      data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.userId == request.auth.uid &&
+      data.sellerMst is string && data.sellerMst.size() >= 10 && data.sellerMst.size() <= 14 && data.sellerMst.matches('^[0-9\\-]+$') &&
+      data.sellerName is string && data.sellerName.size() >= 1 && data.sellerName.size() <= 300 &&
+      data.invoiceSymbol is string && data.invoiceSymbol.size() >= 1 && data.invoiceSymbol.size() <= 30 &&
+      data.invoiceNumber is string && data.invoiceNumber.size() >= 1 && data.invoiceNumber.size() <= 30 &&
+      data.issueDate is string && data.issueDate.size() >= 8 && data.issueDate.size() <= 25 &&
+      data.subtotalAmount is number && data.subtotalAmount >= 0 &&
+      data.vatAmount is number && data.vatAmount >= 0 &&
+      data.totalAmount is number && data.totalAmount >= 0 &&
+      data.recommendation is string && data.recommendation.size() <= 30 && data.recommendation in ['ELIGIBLE', 'EXPLANATION_REQUIRED', 'EXCLUSION_RISK'] &&
+      data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 200 &&
+      data.createdAt is timestamp;
+    }
+
+    // 5. Collection: /test/{docId} for initial connection check
+    match /test/{docId} {
+      allow get: if isValidId(docId);
+      allow list, write: if false;
+    }
+
+    // 6. Collection: /watchlist/{itemId}
+    match /watchlist/{itemId} {
+      allow get: if isVerifiedUser() && isValidId(itemId) && existing().userId == request.auth.uid;
+      allow list: if isVerifiedUser() && resource.data.userId == request.auth.uid;
+
+      allow create: if isVerifiedUser() &&
+        isValidId(itemId) &&
+        isValidWatchlistSupplier(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser() &&
+        isValidId(itemId) &&
+        isValidWatchlistSupplier(incoming()) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().mst == existing().mst &&
+        incoming().baselineStatus == existing().baselineStatus &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          // Action 1: Scan / Risk Status Update
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'currentStatus',
+            'riskLevel',
+            'riskReason',
+            'impactedInvoices',
+            'note',
+            'updatedAt'
+          ])
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(itemId) && existing().userId == request.auth.uid;
+    }
+
+    // 7. Collection: /invoices/{invoiceId}
+    match /invoices/{invoiceId} {
+      allow get: if isVerifiedUser() && isValidId(invoiceId) && existing().userId == request.auth.uid;
+      allow list: if isVerifiedUser() && resource.data.userId == request.auth.uid;
+
+      allow create: if isVerifiedUser() &&
+        isValidId(invoiceId) &&
+        isValidExtractedInvoice(incoming()) &&
+        incoming().createdAt == request.time;
+
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(invoiceId) && existing().userId == request.auth.uid;
+    }
+  }
+}

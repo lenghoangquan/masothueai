@@ -1,0 +1,199 @@
+{
+  "entities": {
+    "WatchlistSupplier": {
+      "title": "WatchlistSupplier",
+      "description": "A supplier Tax ID (MST) monitored in a user's watchlist with baseline state and linked invoices.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "mst": {
+          "type": "string",
+          "description": "Vietnam Enterprise Tax ID (10 or 13 digits)",
+          "minLength": 10,
+          "maxLength": 14,
+          "pattern": "^[0-9\\-]+$"
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Official legal name of the supplier",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "baselineStatus": {
+          "type": "string",
+          "description": "Initial legal operating status recorded at first lookup",
+          "minLength": 1,
+          "maxLength": 150
+        },
+        "currentStatus": {
+          "type": "string",
+          "description": "Latest legal operating status from tax database scan",
+          "minLength": 1,
+          "maxLength": 150
+        },
+        "riskLevel": {
+          "type": "string",
+          "description": "Evaluated risk classification",
+          "enum": ["SAFE", "WARNING", "HIGH", "CRITICAL"]
+        },
+        "riskReason": {
+          "type": "string",
+          "description": "Detailed risk assessment basis",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "taxAuthority": {
+          "type": "string",
+          "description": "Managing tax authority name",
+          "minLength": 1,
+          "maxLength": 250
+        },
+        "address": {
+          "type": "string",
+          "description": "Registered headquarters address",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "note": {
+          "type": "string",
+          "description": "User tracking notes",
+          "minLength": 0,
+          "maxLength": 500
+        },
+        "impactedInvoices": {
+          "type": "array",
+          "description": "Bounded list of related invoice numbers (up to 50)",
+          "maxLength": 50
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of initial baseline creation"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of latest update or scan"
+        }
+      },
+      "required": [
+        "userId",
+        "mst",
+        "companyName",
+        "baselineStatus",
+        "currentStatus",
+        "riskLevel",
+        "riskReason",
+        "taxAuthority",
+        "address",
+        "note",
+        "impactedInvoices",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ExtractedInvoice": {
+      "title": "ExtractedInvoice",
+      "description": "An e-invoice extracted from XML/PDF (Circular 78/2021/TT-BTC) linked to a user.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "sellerMst": {
+          "type": "string",
+          "description": "Seller Tax ID",
+          "minLength": 10,
+          "maxLength": 14,
+          "pattern": "^[0-9\\-]+$"
+        },
+        "sellerName": {
+          "type": "string",
+          "description": "Seller company name",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "invoiceSymbol": {
+          "type": "string",
+          "description": "Circular 78 Invoice symbol (e.g., 1C26TAA)",
+          "minLength": 1,
+          "maxLength": 30
+        },
+        "invoiceNumber": {
+          "type": "string",
+          "description": "Invoice number",
+          "minLength": 1,
+          "maxLength": 30
+        },
+        "issueDate": {
+          "type": "string",
+          "description": "Invoice issue date (YYYY-MM-DD)",
+          "minLength": 8,
+          "maxLength": 25
+        },
+        "subtotalAmount": {
+          "type": "number",
+          "description": "Total amount before VAT"
+        },
+        "vatAmount": {
+          "type": "number",
+          "description": "Total VAT amount"
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Total payment amount"
+        },
+        "recommendation": {
+          "type": "string",
+          "description": "Tax deduction recommendation",
+          "enum": ["ELIGIBLE", "EXPLANATION_REQUIRED", "EXCLUSION_RISK"]
+        },
+        "fileName": {
+          "type": "string",
+          "description": "Source file name",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when extracted"
+        }
+      },
+      "required": [
+        "userId",
+        "sellerMst",
+        "sellerName",
+        "invoiceSymbol",
+        "invoiceNumber",
+        "issueDate",
+        "subtotalAmount",
+        "vatAmount",
+        "totalAmount",
+        "recommendation",
+        "fileName",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/watchlist/{itemId}": {
+      "schema": { "$ref": "#/entities/WatchlistSupplier" },
+      "description": "Stores monitored suppliers and their baseline/current tax risk states per user."
+    },
+    "/invoices/{invoiceId}": {
+      "schema": { "$ref": "#/entities/ExtractedInvoice" },
+      "description": "Stores extracted PDF/XML Circular 78 invoices per user."
+    }
+  }
+}

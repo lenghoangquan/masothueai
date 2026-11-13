@@ -1,0 +1,6 @@
+{
+  "name": "MASAOTHUE AI — Hệ thống Đối soát Tuân thủ Thuế & Quản trị Rủi ro Hóa đơn",
+  "description": "Hệ thống AI phân tích, tra cứu rủi ro mã số thuế, bóc tách hóa đơn điện tử PDF/XML chuẩn Thông tư 78 và giám sát cảnh báo tự động danh mục nhà cung cấp.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
